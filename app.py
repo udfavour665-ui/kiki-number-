@@ -1,6 +1,7 @@
 
 import os
 import json
+import html
 import urllib.request
 import sqlite3
 from datetime import datetime, timedelta
