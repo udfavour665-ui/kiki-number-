@@ -225,7 +225,31 @@ def register():
     </form>
     </div>
     """)
+@app.route("/login", methods=["GET","POST"])
+def login():
+    if request.method == "POST":
+        with connect() as db:
+            user = db.execute(
+                "SELECT * FROM users WHERE email=?",
+                (request.form["email"].strip().lower(),)
+            ).fetchone()
 
+        if user and check_password_hash(user["password"], request.form["password"]):
+            session["user_id"] = user["id"]
+            return redirect("/dashboard")
+
+        return page("Incorrect email or password.")
+
+    return page("""
+    <div class="card">
+    <h2>Sign in</h2>
+    <form method="post">
+    <input name="email" type="email" placeholder="Email address" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button>Sign in</button>
+    </form>
+    </div>
+    """)
 @app.route("/numbers")
 @login_required
 def live_numbers():
@@ -269,6 +293,7 @@ def live_numbers():
     </div>
     """)
 
+@app.route("/dashboard")
 @login_required
 def dashboard():
     with connect() as db:
