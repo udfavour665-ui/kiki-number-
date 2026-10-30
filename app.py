@@ -231,53 +231,43 @@ def live_numbers():
     balance, balance_error = fleexa_request("/balance")
     areas, areas_error = fleexa_request("/rent/sms4/areas")
 
-    if balance_error or areas_error:
+    if areas_error:
         return page("""
         <div class="card">
-        <h2>Live number availability</h2>
-        <p>We could not retrieve live data right now.</p>
-        <a class="btn" href="/">Go home</a>
+            <h2>Live Number Availability</h2>
+            <p>We could not retrieve rental areas from Fleexa.</p>
+            <a class="btn" href="/dashboard">Go back</a>
         </div>
         """)
 
-    return page("""
-    <div class="card">
-    <h1>Live number availability</h1>
-    <p>Fleexa connection successful.</p>
-    <h3>Wallet balance</h3>
-    <pre>Connected securely</pre>
-    <h3>Available rental areas and prices</h3>
-    <pre>""" + str(areas) + """</pre>
-    <a class="btn" href="/">Go home</a>
-    </div>
-    """)
-@app.route("/login", methods=["GET","POST"])
-def login():
-    if request.method == "POST":
-        with connect() as db:
-            user = db.execute(
-                "SELECT * FROM users WHERE email=?",
-                (request.form["email"].strip().lower(),)
-            ).fetchone()
+    if isinstance(areas, (dict, list)):
+        areas_display = json.dumps(
+            areas,
+            indent=2,
+            ensure_ascii=False
+        )
+    else:
+        areas_display = str(areas)
 
-        if user and check_password_hash(user["password"],request.form["password"]):
-            session["user_id"] = user["id"]
-            return redirect("/dashboard")
+    safe_areas = html.escape(areas_display)
 
-        return page("Incorrect email or password.")
+    connection_status = (
+        "Connected securely"
+        if not balance_error
+        else "Rental data received; wallet check unavailable"
+    )
 
     return page("""
     <div class="card">
-    <h2>Sign in</h2>
-    <form method="post">
-    <input name="email" type="email" placeholder="Email address" required>
-    <input name="password" type="password" placeholder="Password" required>
-    <button>Sign in</button>
-    </form>
+        <h1>Live Number Availability</h1>
+        <p>Fleexa: """ + connection_status + """</p>
+        <h3>Available Rental Areas and Prices</h3>
+        <pre style="white-space:pre-wrap;overflow-wrap:anywhere;">""" + safe_areas + """</pre>
+        <a class="btn" href="/numbers">Refresh availability</a>
+        <a class="btn" href="/dashboard">Go back</a>
     </div>
     """)
 
-@app.route("/dashboard")
 @login_required
 def dashboard():
     with connect() as db:
