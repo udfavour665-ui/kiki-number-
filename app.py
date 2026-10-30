@@ -1,5 +1,7 @@
 
 import os
+import json
+import urllib.request
 import sqlite3
 from datetime import datetime, timedelta
 from functools import wraps
@@ -12,6 +14,28 @@ app.secret_key = os.environ.get("SECRET_KEY", "replace-before-launch")
 
 DB = os.environ.get("DATABASE_PATH", "kikisms.db")
 
+
+FLEEXA_BASE = "https://fleexa.com.ng/developer"
+
+def fleexa_request(path):
+    api_key = os.environ.get("FLEEXA_API_KEY")
+
+    if not api_key:
+        return None, "Fleexa API key is not configured."
+
+    req = urllib.request.Request(
+        FLEEXA_BASE + path,
+        headers={
+            "Authorization": "Bearer " + api_key,
+            "Accept": "application/json"
+        }
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            return json.loads(response.read().decode()), None
+    except Exception:
+        return None, "Unable to connect to Fleexa. Please try again."
 def connect():
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
@@ -201,6 +225,32 @@ def register():
     </div>
     """)
 
+@app.route("/numbers")
+@login_required
+def live_numbers():
+    balance, balance_error = fleexa_request("/balance")
+    areas, areas_error = fleexa_request("/rent/sms4/areas")
+
+    if balance_error or areas_error:
+        return page("""
+        <div class="card">
+        <h2>Live number availability</h2>
+        <p>We could not retrieve live data right now.</p>
+        <a class="btn" href="/">Go home</a>
+        </div>
+        """)
+
+    return page("""
+    <div class="card">
+    <h1>Live number availability</h1>
+    <p>Fleexa connection successful.</p>
+    <h3>Wallet balance</h3>
+    <pre>Connected securely</pre>
+    <h3>Available rental areas and prices</h3>
+    <pre>""" + str(areas) + """</pre>
+    <a class="btn" href="/">Go home</a>
+    </div>
+    """)
 @app.route("/login", methods=["GET","POST"])
 def login():
     if request.method == "POST":
